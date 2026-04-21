@@ -1,3 +1,4 @@
+python -c "import nltk; nltk.download('punkt', download_dir='C:\Users\Max\AppData\Roaming\nltk_data')"
 # 第三节 四步构建RAG
 
 通过第一节的学习，我们对RAG已经有了基本认识，并且也准备好了虚拟环境和api_key，接下来将尝试使用[**LangChain**](https://python.langchain.com/docs/introduction/)和[**LlamaIndex**](https://docs.llamaindex.ai/en/stable/)框架完成第一个RAG应用的实现与运行。通过一个示例，演示如何加载本地Markdown文档，利用嵌入模型处理文本，并结合大型语言模型（LLM）来回答与文档内容相关的问题。
@@ -11,14 +12,14 @@
 > 如果使用是Cloud Studio，需要确认当前是否是用户环境，如果不是请运行 `su ubuntu` 切换到用户环境。
 
 ```bash
-conda activate all-in-rag
+conda activate allinrag
 ```
 
 ### 1.2 切换到项目目录
 
 ```bash
 # 假设当前在 all-in-rag 项目的根目录下
-cd code/C1
+cd ../../code/C1
 ```
 
 每章内容中的代码文件都存放在 `code/Cx` 目录下，其中 `x` 表示章节编号。
