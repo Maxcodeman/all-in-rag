@@ -9,8 +9,8 @@ def download_visualized_bge_model():
     # 定义模型路径和下载URL
     model_dir = Path("../../models/bge")
     model_file = model_dir / "Visualized_base_en_v1.5.pth"
-    download_url = "https://huggingface.co/BAAI/bge-visualized/resolve/main/Visualized_base_en_v1.5.pth?download=true"
-    
+    # download_url = "https://huggingface.co/BAAI/bge-visualized/resolve/main/Visualized_base_en_v1.5.pth?download=true"
+    download_url = "https://modelscope.cn/api/v1/models/AI-ModelScope/bge-visualized/repo?Revision=master&FilePath=Visualized_base_en_v1.5.pth"
     # 检查模型文件是否已存在
     if model_file.exists():
         print(f"模型文件已存在: {model_file}")
