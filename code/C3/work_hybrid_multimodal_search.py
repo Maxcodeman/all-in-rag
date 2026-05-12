@@ -1,5 +1,8 @@
 import json
 import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["HF_HUB_OFFLINE"] = "1"            # Hugging Face Hub 离线
+
 from tqdm import tqdm
 import torch
 from visual_bge.visual_bge.modeling import Visualized_BGE
@@ -63,7 +66,7 @@ class HybridMultimodalEncoder:
         self.visual_model.eval()
         
         # 初始化BGE-M3模型（用于混合检索）
-        self.bge_m3 = BGEM3EmbeddingFunction(use_fp16=False, device="cpu")
+        self.bge_m3 = BGEM3EmbeddingFunction(model_name=r"D:\modelscope\models\BAAI\bge-m3",use_fp16=False, device="cpu")
         print(f"BGE-M3 密集向量维度: {self.bge_m3.dim['dense']}")
 
     def encode_multimodal(self, image_path: str, text: str) -> list[float]:

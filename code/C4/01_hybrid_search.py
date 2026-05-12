@@ -15,7 +15,7 @@ print(f"--> 正在连接到 Milvus: {MILVUS_URI}")
 connections.connect(uri=MILVUS_URI)
 
 print("--> 正在初始化 BGE-M3 嵌入模型...")
-ef = BGEM3EmbeddingFunction(use_fp16=False, device="cpu")
+ef = BGEM3EmbeddingFunction(model_name=r"D:\modelscope\models\BAAI\bge-m3",use_fp16=False, device="cpu")
 print(f"--> 嵌入模型初始化完成。密集向量维度: {ef.dim['dense']}")
 
 # 3. 创建 Collection

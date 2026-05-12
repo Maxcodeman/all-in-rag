@@ -11,7 +11,7 @@ class SimpleKnowledgeBase:
     def __init__(self, milvus_uri: str = "http://localhost:19530"):
         self.milvus_uri = milvus_uri
         self.client = MilvusClient(uri=milvus_uri)
-        self.embedding_function = BGEM3EmbeddingFunction(use_fp16=False, device="cpu")
+        self.embedding_function = BGEM3EmbeddingFunction(model_name=r"D:\modelscope\models\BAAI\bge-m3",use_fp16=False, device="cpu")
         self.collection_name = "text2sql_kb"
         self._setup_collection()
     

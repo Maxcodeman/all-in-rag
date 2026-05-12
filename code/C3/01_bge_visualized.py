@@ -1,3 +1,11 @@
+import os
+
+# 允许重复的 OpenMP 库（Windows 环境下的临时解决方案）
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+
+os.environ["HF_HUB_OFFLINE"] = "1"            # Hugging Face Hub 离线
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
 import torch
 from visual_bge.visual_bge.modeling import Visualized_BGE
 

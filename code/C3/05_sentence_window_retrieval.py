@@ -1,4 +1,13 @@
 import os
+
+from dotenv import load_dotenv
+
+# 加载 .env 文件
+load_dotenv()
+
+os.environ["HF_HUB_OFFLINE"] = "1"            # Hugging Face Hub 离线
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
 from llama_index.core.node_parser import SentenceWindowNodeParser, SentenceSplitter
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.llms.deepseek import DeepSeek
@@ -7,7 +16,12 @@ from llama_index.core.postprocessor import MetadataReplacementPostProcessor
 
 # 1. 配置模型
 Settings.llm = DeepSeek(model="deepseek-chat", temperature=0.1, api_key=os.getenv("DEEPSEEK_API_KEY"))
-Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en")
+# Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en")
+
+Settings.embed_model = HuggingFaceEmbedding(
+    model_name=r"C:\Users\Max\.cache\modelscope\hub\models\BAAI\bge-small-en",   # 替换为你的本地模型实际路径
+    cache_folder=r"C:\Users\Max\.cache"  # 可选，也可以在环境变量中设置
+)
 
 # 2. 加载文档
 documents = SimpleDirectoryReader(

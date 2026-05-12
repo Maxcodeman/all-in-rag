@@ -1,4 +1,8 @@
 import os
+
+os.environ["HF_HUB_OFFLINE"] = "1"            # Hugging Face Hub 离线
+os.environ["TRANSFORMERS_OFFLINE"] = "1"
+
 import pandas as pd
 from dotenv import load_dotenv
 from llama_index.core import VectorStoreIndex
@@ -14,7 +18,12 @@ load_dotenv()
 
 # 配置模型
 Settings.llm = DeepSeek(model="deepseek-chat", api_key=os.getenv("DEEPSEEK_API_KEY"))
-Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-zh-v1.5")
+# Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-zh-v1.5")
+
+Settings.embed_model = HuggingFaceEmbedding(
+    model_name=r"C:\Users\Max\.cache\modelscope\hub\models\BAAI\bge-small-zh-v1.5",   # 替换为你的本地模型实际路径
+    cache_folder=r"C:\Users\Max\.cache"  # 可选，也可以在环境变量中设置
+)
 
 # 1.加载数据并为每个工作表创建查询引擎和摘要节点
 excel_file = '../../data/C3/excel/movie.xlsx'
@@ -57,7 +66,7 @@ recursive_retriever = RecursiveRetriever(
 query_engine = RetrieverQueryEngine.from_args(recursive_retriever)
 
 # 5. 执行查询
-query = "1994年评分人数最少的电影是哪一部？"
+query = "1995年评分人数最少的电影是哪一部？"
 print(f"查询: {query}")
 response = query_engine.query(query)
 print(f"回答: {response}")

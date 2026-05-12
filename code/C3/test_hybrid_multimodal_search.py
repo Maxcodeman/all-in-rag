@@ -1,3 +1,4 @@
+import json
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
@@ -9,10 +10,11 @@ from tqdm import tqdm
 from glob import glob
 import torch
 from visual_bge.visual_bge.modeling import Visualized_BGE
-from pymilvus import MilvusClient, FieldSchema, CollectionSchema, DataType
+from pymilvus import MilvusClient, FieldSchema, CollectionSchema, DataType, Collection
 import numpy as np
 import cv2
 from PIL import Image
+from pymilvus.model.hybrid import BGEM3EmbeddingFunction
 
 # 1. 初始化设置
 MODEL_NAME = "BAAI/bge-base-en-v1.5"
@@ -74,6 +76,10 @@ print("--> 正在初始化编码器和Milvus客户端...")
 encoder = Encoder(MODEL_NAME, MODEL_PATH)
 milvus_client = MilvusClient(uri=MILVUS_URI)
 
+print("--> 正在初始化 BGE-M3 嵌入模型...")
+ef = BGEM3EmbeddingFunction(model_name=r"D:\modelscope\models\BAAI\bge-m3",use_fp16=False, device="cpu")
+print(f"--> 嵌入模型初始化完成。密集向量维度: {ef.dim['dense']}")
+
 # 4. 创建 Milvus Collection
 print(f"\n--> 正在创建 Collection '{COLLECTION_NAME}'")
 if milvus_client.has_collection(COLLECTION_NAME):
@@ -87,8 +93,16 @@ dim = len(encoder.encode_image(image_list[0]))
 
 fields = [
     FieldSchema(name="id", dtype=DataType.INT64, is_primary=True, auto_id=True),
+    FieldSchema(name="img_id", dtype=DataType.VARCHAR, max_length=100),
     FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=dim),
     FieldSchema(name="image_path", dtype=DataType.VARCHAR, max_length=512),
+    FieldSchema(name="title", dtype=DataType.VARCHAR, max_length=256),
+    FieldSchema(name="description", dtype=DataType.VARCHAR, max_length=4096),
+    FieldSchema(name="category", dtype=DataType.VARCHAR, max_length=64),
+    FieldSchema(name="location", dtype=DataType.VARCHAR, max_length=128),
+    FieldSchema(name="environment", dtype=DataType.VARCHAR, max_length=64),
+    FieldSchema(name="sparse_vector", dtype=DataType.SPARSE_FLOAT_VECTOR),
+    FieldSchema(name="dense_vector", dtype=DataType.FLOAT_VECTOR, dim=ef.dim["dense"])
 ]
 
 # 创建集合 Schema
@@ -105,9 +119,97 @@ print(milvus_client.describe_collection(collection_name=COLLECTION_NAME))
 # 5. 准备并插入数据
 print(f"\n--> 正在向 '{COLLECTION_NAME}' 插入数据")
 data_to_insert = []
-for image_path in tqdm(image_list, desc="生成图像嵌入"):
-    vector = encoder.encode_image(image_path)
-    data_to_insert.append({"vector": vector, "image_path": image_path})
+
+DATA_PATH = "../../data/C3/metadata/dragon.json"  # 相对路径
+docs, metadata = [], []
+
+#加载元数据
+if not os.path.exists(DATA_PATH):
+    raise FileNotFoundError(f"数据文件未找到: {DATA_PATH}")
+with open(DATA_PATH, 'r', encoding='utf-8') as f:
+    dataset = json.load(f)
+for item in dataset:
+    parts = [
+        item.get('title', ''),
+        item.get('description', ''),
+        item.get('location', ''),
+        item.get('environment', ''),
+    ]
+    docs.append(' '.join(filter(None, parts)))
+    metadata.append(item)
+print(f"--> 元数据加载完成，共 {len(docs)} 条。")
+
+print("--> 正在生成向量嵌入...")
+embeddings = ef(docs)
+print("--> 向量生成完成。")
+
+# 为每个字段准备批量数据
+img_ids = [doc["img_id"] for doc in metadata]
+image_paths = [doc["path"] for doc in metadata]
+titles = [doc["title"] for doc in metadata]
+descriptions = [doc["description"] for doc in metadata]
+categories = [doc["category"] for doc in metadata]
+locations = [doc["location"] for doc in metadata]
+environments = [doc["environment"] for doc in metadata]
+
+# 获取向量
+sparse_vectors = embeddings["sparse"]
+dense_vectors = embeddings["dense"]
+
+
+def sparse_to_milvus(sparse_matrix):
+    """将 scipy.sparse 矩阵（COO 或 CSR）转换为 Milvus 可接受的字典列表"""
+    # 统一转换为 CSR 格式，方便按行提取索引和值
+    if hasattr(sparse_matrix, 'tocsr'):
+        sparse_matrix = sparse_matrix.tocsr()
+    else:
+        # 如果已经是 CSR，直接使用
+        pass
+
+    rows = []
+    for i in range(sparse_matrix.shape[0]):
+        row = sparse_matrix[i]  # 获取第 i 行（CSR 格式）
+        # row.indices: 非零列的索引数组
+        # row.data:    对应非零元素的值数组
+        d = {int(idx): float(val) for idx, val in zip(row.indices, row.data)}
+        rows.append(d)
+    return rows
+
+
+# 使用方式
+sparse_vectors_raw = embeddings["sparse"]  # 可能是 COO 格式
+sparse_vectors_milvus = sparse_to_milvus(sparse_vectors_raw)
+
+data_to_insert = []
+for i, doc in enumerate(metadata):
+    row = {
+        "img_id": doc["img_id"],
+        "vector": encoder.encode_image(doc["path"]),
+        "image_path": doc["path"],
+        "title": doc["title"],
+        "description": doc["description"],
+        "category": doc["category"],
+        "location": doc["location"],
+        "environment": doc["environment"],
+        "sparse_vector": sparse_vectors_milvus[i],  # 字典格式
+        "dense_vector": embeddings["dense"][i]
+    }
+    data_to_insert.append(row)
+
+# for i,doc in enumerate(metadata):
+#     vector = encoder.encode_image(doc["path"])
+#     data_to_insert.append([
+#         doc["img_id"],
+#         vector,
+#         doc["path"],
+#         doc["title"],
+#         doc["description"],
+#         doc["category"],
+#         doc["location"],
+#         doc["environment"],
+#         sparse_vectors[i],
+#         dense_vectors[i]
+#     ])
 
 if data_to_insert:
     result = milvus_client.insert(collection_name=COLLECTION_NAME, data=data_to_insert)
@@ -122,10 +224,36 @@ index_params.add_index(
     metric_type="COSINE",
     params={"M": 16, "efConstruction": 256}
 )
+
+#创建稀疏索引
+index_params.add_index(
+    field_name="sparse_vector",
+    # index_name="sparse_vector_idx",
+    index_type="SPARSE_INVERTED_INDEX",
+    metric_type="IP"
+)
+
+#创建稠密索引
+index_params.add_index(
+    field_name="dense_vector",
+    # index_name="dense_vector_idx",
+    index_type="AUTOINDEX",
+    metric_type="IP",
+)
+
 milvus_client.create_index(collection_name=COLLECTION_NAME, index_params=index_params)
 print("成功为向量字段创建 HNSW 索引。")
 print("索引详情:")
 print(milvus_client.describe_index(collection_name=COLLECTION_NAME, index_name="vector"))
+
+print("成功为向量字段创建 稀疏 索引。")
+print("索引详情:")
+print(milvus_client.describe_index(collection_name=COLLECTION_NAME, index_name="sparse_vector"))
+
+print("成功为向量字段创建 稠密 索引。")
+print("索引详情:")
+print(milvus_client.describe_index(collection_name=COLLECTION_NAME, index_name="dense_vector"))
+
 milvus_client.load_collection(collection_name=COLLECTION_NAME)
 print("已加载 Collection 到内存中。")
 

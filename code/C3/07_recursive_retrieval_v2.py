@@ -12,7 +12,10 @@ load_dotenv()
 
 # 配置模型
 Settings.llm = DeepSeek(model="deepseek-chat", api_key=os.getenv("DEEPSEEK_API_KEY"))
-Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-zh-v1.5")
+Settings.embed_model = HuggingFaceEmbedding(
+    model_name=r"C:\Users\Max\.cache\modelscope\hub\models\BAAI\bge-small-zh-v1.5",   # 替换为你的本地模型实际路径
+    cache_folder=r"C:\Users\Max\.cache"  # 可选，也可以在环境变量中设置
+)
 
 # 1. 加载和预处理数据
 excel_file = '../../data/C3/excel/movie.xlsx'
@@ -95,7 +98,7 @@ def query_safe_recursive(query_str):
     return response
 
 # 4. 执行查询
-query = "1994年评分人数最少的电影是哪一部？"
+query = "2005年评分人数最多的电影是哪一部？"
 response = query_safe_recursive(query)
 
 print(f"最终回答: {response}")
